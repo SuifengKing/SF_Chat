@@ -38,10 +38,10 @@ class SFChatClient(object):
         self.username = username
         self.send_msg(content={'username': username, 'password': password}, send_type='login')
         time.sleep(1.5)
-        if self.is_login:
-            self.menu()
-        else:
-            return
+        # if self.is_login:
+        #     self.menu()
+        # else:
+        #     return
 
     def send_msg(self, content, send_to='', send_type='msg'):
         """
@@ -55,7 +55,7 @@ class SFChatClient(object):
         data['send_type'] = send_type
         data['send_to'] = send_to
         data['from_user'] = self.username
-        data['send_time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))
+        data['send_time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time() + 28800))
         # 发送数据
         self.socket.send(json.dumps(data).encode('utf-8'))  # 以json字符串经过utf-8编码发送
 
@@ -87,9 +87,7 @@ class SFChatClient(object):
 
     def recv_msg_always(self):
         while True:
-            recv_dict = self.recv_msg()
-            if recv_dict.get('send_type', '') == 'logout':
-                break
+            self.recv_msg()
 
     def get_users_list(self):
         self.send_msg(content={}, send_type='online_users')

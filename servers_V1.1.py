@@ -72,6 +72,12 @@ class SFChatServers(object):
                 self.send_msg(temp_socket, recv_data, send_to=recv_data['send_to'])     # 普通消息处理,转发至目标用户
             elif recv_data['send_type'] == 'online_users':
                 self.send_users_list(temp_socket)       # 请求在线人数处理,
+            elif recv_data['send_type'] == 'logout':
+                logout_user = recv_data.get('from_user', '')
+                del self.online_users[logout_user]
+                self.send_msg(temp_socket, recv_data)
+                print(logout_user + '已退出')
+                break
             elif recv_data['send_type'] == 'recv_return':
                 pass
 
@@ -102,24 +108,37 @@ class SFChatServers(object):
         :param send_to:
         :return:
         """
-        # 消息反馈, 对接收到的客户端大多数行为进行反馈
+        # 消息反馈, 对接收到的客户端大多数行为进行反馈, 比如登录注册
         if content.get('send_type', '') == 'msg':
             temp_socket.send(json.dumps({'send_type': 'recv_return', 'result': 'ok'}).encode('utf-8'))   #
         else:
             temp_socket.send(json.dumps(content).encode('utf-8'))       #
 
-        #
-        # 此处从数据库查找目的用户，在线尝试发送，离线保存数据库
-        #
-        if send_to == '':
-            pass
-        else:
+        if content.get('send_type', '') == 'msg':
+            # 此处从数据库查找目的用户，在线尝试发送，离线保存数据库
             user_socket = self.online_users.get(send_to, None)
+            from_user = content.get('from_user', '')
+            send_time = content.get('send_time', '')
+            msg = content.get('content', '')
+            cur = self.db.cursor()
             if user_socket is None:
-                pass    # 此处存入数据库
+                # 此处用户离线存入数据库
+                cur.execute("""insert into messages(send_to,from_user,status,send_time,content,send_type)
+                            values(%s,%s,%s,%s,%s,%s)""",
+                            [send_to, from_user, 0, send_time, msg, 'msg'])
             else:
-                user_socket.send(json.dumps(content).encode('utf-8'))
-                pass    # 发送过去也应该存入数据库, 只是状态是已读
+                try:
+                    user_socket.send(json.dumps(content).encode('utf-8'))
+                    # 发送过去也应该存入数据库, 只是状态是已读
+                    cur.execute("""insert into messages(send_to,from_user,status,send_time,content,send_type)
+                                values(%s,%s,%s,%s,%s,%s)""",
+                                [send_to, from_user, 1, send_time, msg, 'msg'])
+                except:
+                    cur.execute("""insert into messages(send_to,from_user,status,send_time,content,send_type)
+                                values(%s,%s,%s,%s,%s,%s)""",
+                                [send_to, from_user, 0, send_time, msg, 'msg'])
+            self.db.commit()
+            cur.close()
 
     def save_to_database(self):
         """把数据存入数据库"""
