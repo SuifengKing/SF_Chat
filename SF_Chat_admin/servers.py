@@ -1,15 +1,27 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2019/7/11 9:04
+# @Time    : 2019/9/17 21:11
 # @Author  : Yaojie Chang
 # @File    : servers.py
 # @Software: PyCharm
-
 import socket
 import threading
-import time
 import json
 import MySQLdb
 import hashlib
+import os
+import django
+import time
+from datetime import datetime
+
+
+# 引入django配置文件
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "SF_Chat_admin.settings")
+# 启动django
+django.setup()
+
+from database.models import UsersProfile
+from database.models import Messages
+# from django.shortcuts import get_object_or_404
 
 
 class SFChatServers(object):
@@ -28,23 +40,13 @@ class SFChatServers(object):
         self.online_users = {}      # 用字典信息存储当前在线的用户
         self.users_addr = {}        # 保存用户IP
 
-        self.db = MySQLdb.connect(
-            host='localhost',
-            port=3306,
-            user='root',
-            password='suifengking',
-            db='sf_chat',
-            charset='utf8'
-        )
-
     def __del__(self):
         """服务端程序退出时关闭所有已连接的用户并关闭监听socket"""
         # 关闭套接字
         for username in self.online_users:
             self.online_users[username].close()
         self.socket.close()
-        self.db.close()
-        print('已结束!!!')
+        print('服务结束……')
 
     def listen(self):
         """监听连接，每当用户登录到聊天工具时开始开启一个该用户的线程"""
@@ -75,7 +77,7 @@ class SFChatServers(object):
                 self.send_users_list(temp_socket)       # 请求在线人数处理,
             elif recv_data['send_type'] == 'logout':
                 logout_user = recv_data.get('from_user', '')
-                del self.online_users[logout_user]
+                self.online_users[logout_user] = None
                 self.send_msg(temp_socket, recv_data)
                 print(logout_user + '已退出')
                 break
@@ -86,23 +88,19 @@ class SFChatServers(object):
         """用户登录身份验证的具体实现"""
         username = recv_data['username']
         password = recv_data['password']
-        send_time = recv_data['send_time']
         sh = hashlib.sha256()
         sh.update((username + password + 'cyj').encode('utf8'))
         password_hash = sh.hexdigest()
-        cur = self.db.cursor()
-        cur.execute('select * from database_usersprofile where username=%s and password=%s', [username, password_hash])
-        user = cur.fetchone()
-        if user is not None:
+        try:
+            user = UsersProfile.objects.get(username=username, password=password_hash)
             self.send_msg(temp_socket, {'result': 'ok', 'send_type': 'login'}, recv_data['send_to'])
             self.online_users[recv_data['username']] = temp_socket
-            cur.execute("""update database_usersprofile set last_login=%s,last_ip=%s where username=%s""", [send_time, client_addr, username])
-            self.db.commit()
-            cur.close()
+            user.last_login = datetime.now()
+            user.last_ip = client_addr
+            user.save()
             return True
-        else:
-            self.send_msg(temp_socket, {'result': '用户不存在或密码错误!!!', 'send_type': 'login'}, recv_data['send_to'])
-            cur.close()
+        except:
+            self.send_msg(temp_socket, {'result': '登陆失败!!!可能是用户不存在或密码错误!!!', 'send_type': 'login'}, recv_data['send_to'])
             return False
 
     def send_msg(self, temp_socket, content, send_to=''):
@@ -125,31 +123,35 @@ class SFChatServers(object):
             from_user = content.get('from_user', '')
             send_time = content.get('send_time', '')
             msg = content.get('content', '')
-            cur = self.db.cursor()
+            # cur = self.db.cursor()
             if user_socket is None:
                 # 此处用户离线存入数据库
-                cur.execute("""insert into messages(send_to,from_user,status,send_time,content,send_type)
-                            values(%s,%s,%s,%s,%s,%s)""",
-                            [send_to, from_user, 0, send_time, msg, 'msg'])
+                self.save_to_database(send_to=send_to, from_user=from_user, status=False,
+                                      send_time=datetime.now(), content=msg, send_type='msg')
             else:
                 try:
                     user_socket.send(json.dumps(content).encode('utf-8'))
                     # 发送过去也应该存入数据库, 只是状态是已读
-                    cur.execute("""insert into messages(send_to,from_user,status,send_time,content,send_type)
-                                values(%s,%s,%s,%s,%s,%s)""",
-                                [send_to, from_user, 1, send_time, msg, 'msg'])
+                    self.save_to_database(send_to=send_to, from_user=from_user, status=True,
+                                          send_time=datetime.now(), content=msg, send_type='msg')
                 except:
-                    cur.execute("""insert into messages(send_to,from_user,status,send_time,content,send_type)
-                                values(%s,%s,%s,%s,%s,%s)""",
-                                [send_to, from_user, 0, send_time, msg, 'msg'])
-            self.db.commit()
-            cur.close()
+                    self.save_to_database(send_to=send_to, from_user=from_user, status=False,
+                                          send_time=datetime.now(), content=msg, send_type='msg')
 
-    def save_to_database(self):
-        """把数据存入数据库"""
+    def save_to_database(self, send_to, from_user, status, send_time, content, send_type):
+        """把消息数据存入数据库"""
         # 数据应该包括发送人, 发送时间, 内容, 消息状态, 接收人
         # 可以考虑使用MySQL的外键
-        pass
+        message = Messages()
+        send_to_key = UsersProfile.objects.get(username=send_to)
+        message.send_to = send_to_key
+        from_user_key = UsersProfile.objects.get(username=from_user)
+        message.from_user = from_user_key
+        message.status = status
+        message.send_time = send_time
+        message.content = content
+        message.send_type = send_type
+        message.save()
 
     def send_users_list(self, temp_socket):
         """获取在线用户并发送"""
@@ -170,36 +172,25 @@ class SFChatServers(object):
     def register(self, temp_socket, recv_data):
         username = recv_data['username']
         password = recv_data['password']
-        send_time = recv_data['send_time']
-        cur = self.db.cursor()
-        cur.execute('select * from database_usersprofile where username=%s', [username])
-        user = cur.fetchone()
-        if user is not None:
+        user_filter = UsersProfile.objects.filter(username=username)
+        if user_filter:
             temp_socket.send(json.dumps({'send_type': 'register', 'result': '用户名已存在!!!', 'code': 1}).encode('utf8'))
         else:
             sh = hashlib.sha256()
             sh.update((username + password + 'cyj').encode('utf8'))
             password = sh.hexdigest()
-            cur.execute('''insert into database_usersprofile(username, password, nickname, date_joined) 
-            value (%s,%s,%s,%s)''', [username, password, username, send_time])
-            self.db.commit()
+            user_profile = UsersProfile()
+            user_profile.username = username
+            user_profile.password = password
+            user_profile.nickname = username
+            user_profile.date_joined = datetime.now()
+            user_profile.save()
             temp_socket.send(json.dumps({'send_type': 'register', 'result': '注册成功!!!', 'code': 0}).encode('utf8'))
-        cur.close()
 
 
 if __name__ == '__main__':
     server = SFChatServers()
+    print('服务启动……')
     server.listen()
 
-
-
-
-
-
-# print(socket.gethostbyname(socket.gethostname()))   #  获取局域网IP
-# 获取公网IP接口
-# 'http://ip.42.pl/raw'
-# 'http://jsonip.com'
-# 'http://httpbin.org/ip'
-# 'https://api.ipify.org/?format=json'
 

@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2019/7/11 9:04
-# @Author  : Yaojie Chang
 # @File    : servers.py
 # @Software: PyCharm
 
@@ -13,10 +11,6 @@ import hashlib
 
 
 class SFChatServers(object):
-    """
-    V1.0  July 11 2019 10:10
-    用一个字典来保存在线用户连接的socket，然后查找发送
-    """
     def __init__(self):
         # 创建TCP套接字
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

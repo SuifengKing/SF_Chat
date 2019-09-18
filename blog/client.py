@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2019/7/11 9:03
-# @Author  : Yaojie Chang
 # @File    : client.py
 # @Software: PyCharm
 
@@ -26,7 +24,6 @@ class SFChatClient(object):
 
     def __del__(self):
         # 关闭套接字
-        self.send_msg(content={}, send_type='logout')
         self.socket.close()
         print('已结束!!!')
 

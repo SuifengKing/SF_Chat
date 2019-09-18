@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2019/9/12 10:12
-# @Author  : Yaojie Chang
 # @File    : users_lists_GUI.py
 # @Software: PyCharm
 import time
@@ -8,7 +7,6 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox, QListWidgetItem
 from PyQt5.QtGui import QPixmap
 
-# from MyGUI.users_lists_window import Ui_UsersLists
 from users_lists_window import Ui_UsersLists
 
 
@@ -20,7 +18,7 @@ class UsersListsWindow(QWidget, Ui_UsersLists):
         self.chat_obj = None
         self.send_to = ''
 
-        self.label_show.setPixmap(QPixmap('tushansusu.jpg'))    # 窗口右侧的形象展示
+        self.label_show.setPixmap(QPixmap('tushansusu.jpg'))
         self.listWidget_online_users.doubleClicked.connect(lambda: self.start_chat(self.listWidget_online_users))
         # self.listWidget_friends.doubleClicked.connect(lambda: self.start_chat(self.listWidget_friends))
         self.pushButton_fresh_online_users.clicked.connect(self.get_online_users)

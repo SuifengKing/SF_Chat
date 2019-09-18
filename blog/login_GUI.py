@@ -1,25 +1,16 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2019/9/12 8:34
-# @Author  : Yaojie Chang
 # @File    : test2.py
 # @Software: PyCharm
-import time
 import threading
 import sys
-# import os
-# if hasattr(sys, 'frozen'):
-#     os.environ['PATH'] = sys._MEIPASS + ";" + os.environ['PATH']
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QMessageBox
-
-# from MyGUI.login_window import Ui_LoginWindow
-# from MyGUI.users_lists_GUI import UsersListsWindow
-# from MyGUI.register_GUI import RegisterWindow
 from login_window import Ui_LoginWindow
 from users_lists_GUI import UsersListsWindow
 from register_GUI import RegisterWindow
 
 # from MyGUI.client_v12 import SFChatClient
-from client_v12 import SFChatClient
+from client import SFChatClient
 
 
 class LoginWindow(QMainWindow, Ui_LoginWindow):
@@ -80,17 +71,5 @@ if __name__ == '__main__':
     window.show()
     sys.exit(app.exec_())
 
-# self.my_checkbox.stateChanged.connect(self.related_function)  # 将checkbox状态变化事件连接相应函数
-# self.my_checkbox.isChecked()  # 检查checkbox是否被勾选
-# self.my_checkbox.setCheckState(QtCore.Qt.Unchecked)  # 将checkbox状态设置为未勾选状态
-# QtCore.Qt.Checked 为勾选状态
-
-# self.image_type_comboBox.currentIndex()   # 获取当前选项的Index（int）
-# self.image_type_comboBox.currentText()    # 获取当前选项的文本（Qstring）
-
-# Movie = QMovie('time.gif')  # 载入Gif图，注意QMovie在PyQt5.QtCore内
-# self.movie_label.setMovie(Movie)  # 将gif显示在gif中
-# Movie.start()  # 启动gif
-# Movie.stop()   # 停止gif
 
 
