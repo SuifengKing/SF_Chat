@@ -11,15 +11,15 @@ import sys
 #     os.environ['PATH'] = sys._MEIPASS + ";" + os.environ['PATH']
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QMessageBox
 
-# from MyGUI.login_window import Ui_LoginWindow
-# from MyGUI.users_lists_GUI import UsersListsWindow
-# from MyGUI.register_GUI import RegisterWindow
-from login_window import Ui_LoginWindow
-from users_lists_GUI import UsersListsWindow
-from register_GUI import RegisterWindow
+from MyGUI.login_window import Ui_LoginWindow
+from MyGUI.users_lists_GUI import UsersListsWindow
+from MyGUI.register_GUI import RegisterWindow
+# from login_window import Ui_LoginWindow
+# from users_lists_GUI import UsersListsWindow
+# from register_GUI import RegisterWindow
 
-# from MyGUI.client_v12 import SFChatClient
-from client_v12 import SFChatClient
+from MyGUI.client_v12 import SFChatClient
+# from client_v12 import SFChatClient
 
 
 class LoginWindow(QMainWindow, Ui_LoginWindow):
@@ -28,7 +28,7 @@ class LoginWindow(QMainWindow, Ui_LoginWindow):
         self.setupUi(self)
 
         self.users_lists_window = UsersListsWindow()
-        self.register_window = RegisterWindow()
+        self.register_window = None
 
         self.pushButton_login.clicked.connect(self.pushButton_login_click)
         self.pushButton_register.clicked.connect(self.pushButton_register_click)
@@ -46,8 +46,9 @@ class LoginWindow(QMainWindow, Ui_LoginWindow):
             self.users_lists_window.get_chat_obj(chat_obj)
             self.users_lists_window.show()
             self.hide()
-            threading.Thread(target=self.recv_msg_always, args=(chat_obj,)).start()
+            threading.Thread(target=self.users_lists_window.recv_msg_always, args=(chat_obj,)).start()
             self.users_lists_window.get_online_users()
+            self.users_lists_window.get_friends()
             self.users_lists_window.label_username.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:11pt; font-weight:600;\">"+chat_obj.username+"</span></p></body></html>")
         else:
             QMessageBox.warning(self, '登陆失败!!!', '用户名或密码错误!!!')
@@ -58,20 +59,9 @@ class LoginWindow(QMainWindow, Ui_LoginWindow):
         except:
             QMessageBox.warning(self, '网络出错', '链接服务器失败，请检查网络或联系管理员!!!')
             return
+        self.register_window = RegisterWindow()
         self.register_window.get_chat_obj(chat_obj)
         self.register_window.show()
-
-    def recv_msg_always(self, chat_obj):
-        while True:
-            recv_dict = chat_obj.recv_msg()
-            if recv_dict.get('send_type', '') == 'msg':
-                content = recv_dict.get('content', '')
-                send_time = recv_dict.get('send_time', '')
-                from_user = recv_dict.get('from_user', '')
-                print(send_time + '\n收到来自' + from_user + '的消息:' + content)
-                self.users_lists_window.listWidget_recv_msg.addItem(send_time + '//' + from_user + ' : ' + content)
-            elif recv_dict.get('send_type', '') == 'logout':
-                break
 
 
 if __name__ == '__main__':

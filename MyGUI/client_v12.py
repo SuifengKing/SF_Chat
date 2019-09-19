@@ -3,7 +3,6 @@
 # @Author  : Yaojie Chang
 # @File    : client.py
 # @Software: PyCharm
-
 import socket
 import threading
 import json
@@ -23,6 +22,7 @@ class SFChatClient(object):
         self.username = ''
         self.is_login = False
         self.online_users_list = list()
+        self.friends_list = list()
 
     def __del__(self):
         # 关闭套接字
@@ -58,23 +58,26 @@ class SFChatClient(object):
         """接收各种消息并处理"""
         recv_data = self.socket.recv(1024)
         recv_dict = json.loads(recv_data.decode('utf-8'))
-        if recv_dict.get('send_type', '') == 'login':
+        send_type = recv_dict.get('send_type', '')
+        if send_type == 'login':
             if recv_dict.get('result', None) == 'ok':
                 self.is_login = True
                 print('登陆成功!!!')
             else:
                 print(recv_dict.get('result'))
                 self.username = ''
-        elif recv_dict.get('send_type', '') == 'register':
+        elif send_type == 'register':
             print(recv_dict.get('result'))
-        elif recv_dict.get('send_type', '') == 'msg':
+        elif send_type == 'msg':
             content = recv_dict.get('content', '')
             send_time = recv_dict.get('send_time', '')
             print(send_time + '\n收到来自'+recv_dict.get('from_user', '')+'的消息:' + content)
-        elif recv_dict.get('send_type', '') == 'is_online':
-            pass
-        elif recv_dict.get('send_type', '') == 'online_users':
+        elif send_type == 'online_users':
             self.online_users_list = recv_dict.get('result', None)
+        elif send_type == 'search_users':
+            pass
+        elif send_type == 'friends':
+            self.friends_list = recv_dict.get('result', None)
         return recv_dict
 
     def recv_msg_always(self):
@@ -92,14 +95,17 @@ class SFChatClient(object):
         self.send_msg(content={'username': username, 'password': password}, send_type='register')
         print('正在验证信息, 请稍等……')
 
-    def search_users(self, username=''):
-        pass
+    def search_users(self, keyword=''):
+        self.send_msg(content={'keyword': keyword}, send_type='search_users')
 
-    def add_friends(self, username=''):
-        pass
+    def add_friend(self, username=''):
+        self.send_msg(content={'username': username}, send_type='add_friend')
 
     def delete_friend(self, username=''):
-        pass
+        self.send_msg(content={'username': username}, send_type='del_friend')
+
+    def get_friends_list(self):
+        self.send_msg(content={}, send_type='friends')
 
     def create_group(self, group_id=''):
         pass

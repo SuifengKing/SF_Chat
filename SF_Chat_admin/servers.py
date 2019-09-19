@@ -19,8 +19,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "SF_Chat_admin.settings")
 # 启动django
 django.setup()
 
-from database.models import UsersProfile
-from database.models import Messages
+from database.models import UsersProfile, Messages, Friends
 # from django.shortcuts import get_object_or_404
 
 
@@ -64,24 +63,31 @@ class SFChatServers(object):
             recv_data = temp_socket.recv(1024)
             recv_data = recv_data.decode('utf-8')
             recv_data = json.loads(recv_data)
+            send_type = recv_data['send_type']
             print(recv_data)        # 调试打印调试打印调试打印调试打印调试打印调试打印调试打印调试打印调试打印调试打印
-            if recv_data['send_type'] == 'login':
+            if send_type == 'login':
                 # 登录处理, 验证成功继续等待, 直到客户端退出, 断开连接
                 if not self.login_auth(temp_socket, recv_data, client_addr=client_addr):
                     break
-            elif recv_data['send_type'] == 'register':  # v1.1版本新添加了用户注册功能
+            elif send_type == 'register':  # v1.1版本新添加了用户注册功能
                 self.register(temp_socket, recv_data)
-            elif recv_data['send_type'] == 'msg':
+            elif send_type == 'msg':
                 self.send_msg(temp_socket, recv_data, send_to=recv_data['send_to'])     # 普通消息处理,转发至目标用户
-            elif recv_data['send_type'] == 'online_users':
+            elif send_type == 'online_users':
                 self.send_users_list(temp_socket)       # 请求在线人数处理,
-            elif recv_data['send_type'] == 'logout':
+            elif send_type == 'friends':
+                self.send_friends_list(temp_socket=temp_socket, username=recv_data.get('from_user', ''))
+            elif send_type == 'search_users':
+                self.search_users(temp_socket=temp_socket, keyword=recv_data.get('keyword', ''))
+            elif send_type == 'add_friend':
+                self.add_friend(recv_data=recv_data)
+            elif send_type == 'logout':
                 logout_user = recv_data.get('from_user', '')
                 self.online_users[logout_user] = None
                 self.send_msg(temp_socket, recv_data)
                 print(logout_user + '已退出')
                 break
-            elif recv_data['send_type'] == 'recv_return':
+            elif send_type == 'recv_return':
                 pass
 
     def login_auth(self, temp_socket, recv_data, client_addr):
@@ -186,6 +192,31 @@ class SFChatServers(object):
             user_profile.date_joined = datetime.now()
             user_profile.save()
             temp_socket.send(json.dumps({'send_type': 'register', 'result': '注册成功!!!', 'code': 0}).encode('utf8'))
+
+    def send_friends_list(self, temp_socket, username):
+        friends_filter = Friends.objects.filter(user_id__username=username)
+        friends_list = list()
+        for friend in friends_filter:
+            friends_list.append(friend.friend_id.username)
+        temp_socket.send(json.dumps({'send_type': 'friends', 'result': friends_list}).encode('utf-8'))
+
+    def search_users(self, temp_socket, keyword):
+        user_filter = UsersProfile.objects.filter(username=keyword)
+        users_list = list()
+        for user in user_filter:
+            users_list.append(user.username)
+        temp_socket.send(json.dumps({'send_type': 'search_users', 'result': users_list}).encode('utf-8'))
+    
+    def add_friend(self, recv_data):
+        username = recv_data.get('from_user', '')
+        friend = recv_data.get('username', '')
+        friend_obj = Friends()
+        friend_obj.user_id = UsersProfile.objects.get(username=username)
+        friend_obj.friend_id = UsersProfile.objects.get(username=friend)
+        friend_obj.save()
+
+    def del_friend(self, recv_data):
+        pass
 
 
 if __name__ == '__main__':

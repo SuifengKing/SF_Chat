@@ -8,8 +8,10 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox, QListWidgetItem
 from PyQt5.QtGui import QPixmap
 
-# from MyGUI.users_lists_window import Ui_UsersLists
-from users_lists_window import Ui_UsersLists
+from MyGUI.users_lists_window import Ui_UsersLists
+from MyGUI.search_GUI import SearchWindow
+# from users_lists_window import Ui_UsersLists
+# from search_GUI import SearchWindow
 
 
 class UsersListsWindow(QWidget, Ui_UsersLists):
@@ -20,12 +22,33 @@ class UsersListsWindow(QWidget, Ui_UsersLists):
         self.chat_obj = None
         self.send_to = ''
 
+        self.search_window = None
+
         self.label_show.setPixmap(QPixmap('tushansusu.jpg'))    # 窗口右侧的形象展示
         self.listWidget_online_users.doubleClicked.connect(lambda: self.start_chat(self.listWidget_online_users))
-        # self.listWidget_friends.doubleClicked.connect(lambda: self.start_chat(self.listWidget_friends))
+        self.listWidget_friends.doubleClicked.connect(lambda: self.start_chat(self.listWidget_friends))
         self.pushButton_fresh_online_users.clicked.connect(self.get_online_users)
+        self.pushButton_fresh_friend_list.clicked.connect(self.get_friends)
+        self.pushButton_search.clicked.connect(self.search)
         self.pushButton_send_msg.clicked.connect(self.send_msg)
         self.pushButton_exit.clicked.connect(self.log_out_exit)
+
+    def recv_msg_always(self, chat_obj):
+        while True:
+            recv_dict = chat_obj.recv_msg()
+            send_type = recv_dict.get('send_type', '')
+            if send_type == 'msg':
+                content = recv_dict.get('content', '')
+                send_time = recv_dict.get('send_time', '')
+                from_user = recv_dict.get('from_user', '')
+                self.listWidget_recv_msg.addItem(send_time + '//' + from_user + ' : ' + content)
+            elif send_type == 'search_users':
+                users_list = recv_dict.get('result', [])
+                self.search_window.listWidget_result.clear()
+                for user in users_list:
+                    self.search_window.listWidget_result.addItem(user)
+            elif recv_dict.get('send_type', '') == 'logout':
+                break
 
     def start_chat(self, listwidget):
         print(listwidget.currentItem().text())
@@ -53,6 +76,18 @@ class UsersListsWindow(QWidget, Ui_UsersLists):
         time.sleep(1.5)
         for user in self.chat_obj.online_users_list:
             self.listWidget_online_users.addItem(user)
+
+    def get_friends(self):
+        self.listWidget_friends.clear()
+        self.chat_obj.get_friends_list()
+        time.sleep(1)
+        for friend in self.chat_obj.friends_list:
+            self.listWidget_friends.addItem(friend)
+
+    def search(self):
+        self.search_window = SearchWindow()
+        self.search_window.get_chat_obj(self.chat_obj)
+        self.search_window.show()
 
     def log_out_exit(self):
         self.chat_obj.send_msg(content={}, send_type='logout')
